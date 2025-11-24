@@ -1,0 +1,5 @@
+{
+  "name": "Lanlearner",
+  "description": "A cross-platform knowledge management and spaced repetition application optimized for language learning and note-taking. Features Ebbinghaus forgetting curve reviews, rich text editing, and Excel data portability.",
+  "requestFramePermissions": []
+}

@@ -30,6 +30,7 @@ export const CardItem: React.FC<CardItemProps> = ({
     onReviewAction,
     onLinkClick
 }) => {
+    const [isExpanded, setIsExpanded] = React.useState(false);
     
     // --- Content Parser (for Links & Tags) ---
     const renderContentWithLinks = (text: string) => {
@@ -87,7 +88,7 @@ export const CardItem: React.FC<CardItemProps> = ({
           )}
     
           {/* Content Rendering */}
-          <div className="text-black text-sm mb-3 max-h-40 overflow-hidden text-ellipsis leading-relaxed whitespace-pre-wrap">
+          <div className={`text-black text-sm mb-3 leading-relaxed whitespace-pre-wrap ${(isReviewMode || isDailyMode || isExpanded) ? '' : 'max-h-40 overflow-hidden text-ellipsis'}`}>
              {card.blocks.map((b, idx) => {
                  if (b.type === 'text') return <span key={idx}>{renderContentWithLinks(b.content)} </span>;
                  if (b.type === 'image') return <div key={idx} className="my-1 text-xs text-gray-400">[图片]</div>;
@@ -95,6 +96,16 @@ export const CardItem: React.FC<CardItemProps> = ({
                  return null;
              })}
           </div>
+          
+          {/* Expand/Collapse Button */}
+          {!isReviewMode && !isDailyMode && (
+              <button 
+                  onClick={() => setIsExpanded(!isExpanded)} 
+                  className="text-xs text-blue-500 hover:text-blue-700 mt-1 flex items-center"
+              >
+                  {isExpanded ? '收起' : '展开'} <span className="ml-1">▼</span>
+              </button>
+          )}
     
           <div className="flex justify-between items-center text-xs text-slate-400 mt-2">
               <span>{formatDate(card.createdAt).split(' ')[0]} 创建</span>

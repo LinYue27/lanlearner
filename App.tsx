@@ -20,9 +20,14 @@ const App = () => {
   
   // Navigation State
   const [view, setView] = useState<ViewMode>('main');
+  const [previousView, setPreviousView] = useState<ViewMode>('main');
   const [activeTab, setActiveTab] = useState<MainTab>('learn');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [viewingCard, setViewingCard] = useState<Card | null>(null); // For single card detail view
+  
+  // Review State
+  const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
+  const [currentDailyIndex, setCurrentDailyIndex] = useState(0);
   
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -129,6 +134,7 @@ const App = () => {
     setEditorBlocks(card.blocks);
     setEditorRemark(card.remark);
     setEditorTags(card.tags);
+    setPreviousView(view);
     setView('edit');
     setActiveCardMenu(null);
   };
@@ -187,7 +193,7 @@ const App = () => {
       };
       setCards([newCard, ...cards]);
     }
-    setView('main');
+    setView(previousView);
   };
 
   const handleDeleteCard = (id: string) => {
@@ -217,7 +223,7 @@ const App = () => {
   };
 
   const handleReviewAction = (cardId: string, remembered: boolean) => {
-      setCards(cards.map(c => {
+      const updatedCards = cards.map(c => {
           if (c.id !== cardId) return c;
           const now = Date.now();
           let newStage = c.stage;
@@ -245,13 +251,54 @@ const App = () => {
               nextReviewDate: nextDate,
               history: [...c.history, log]
           };
-      }));
+      });
+      
+      setCards(updatedCards);
+      
+      // Move to next card if in review mode and there are more cards to review
+      if (view === 'review') {
+          const updatedDueCards = updatedCards.filter(c => c.stage < MAX_STAGE && c.nextReviewDate <= Date.now());
+          setCurrentReviewIndex(prev => Math.min(prev + 1, updatedDueCards.length - 1));
+      }
   };
 
-  const handleDeleteTag = (tagName: string) => {
-    if(confirm(`确定删除标签 #${tagName} 吗？`)) {
-        setTags(tags.filter(t => t.name !== tagName));
+  const handlePinTag = (tagName: string) => {
+    setTags(tags.map(t => t.name === tagName ? { ...t, isPinned: !t.isPinned } : t));
+    setActiveTagMenu(null);
+  };
+  
+  const handleRenameTag = (oldTagName: string) => {
+    const newTagName = prompt(`请输入新的标签名称：`, oldTagName);
+    if (newTagName && newTagName.trim() && newTagName !== oldTagName) {
+        if (tags.some(t => t.name === newTagName.trim())) {
+            alert(`标签 #${newTagName.trim()} 已存在`);
+            return;
+        }
+        setTags(tags.map(t => t.name === oldTagName ? { ...t, name: newTagName.trim() } : t));
+        setCards(cards.map(card => ({
+            ...card,
+            tags: card.tags.map(tag => tag === oldTagName ? newTagName.trim() : tag)
+        })));
         setActiveTagMenu(null);
+    }
+  };
+  
+  const handleDeleteTag = (tagName: string, deleteNotes: boolean = false) => {
+    if (deleteNotes) {
+        if(confirm(`确定删除标签 #${tagName} 及其所有相关笔记吗？`)) {
+            setTags(tags.filter(t => t.name !== tagName));
+            setCards(cards.filter(card => !card.tags.includes(tagName)));
+            setActiveTagMenu(null);
+        }
+    } else {
+        if(confirm(`确定删除标签 #${tagName} 吗？相关笔记将保留。`)) {
+            setTags(tags.filter(t => t.name !== tagName));
+            setCards(cards.map(card => ({
+                ...card,
+                tags: card.tags.filter(tag => tag !== tagName)
+            })));
+            setActiveTagMenu(null);
+        }
     }
   };
   
@@ -377,40 +424,100 @@ const App = () => {
   }
 
   if (view === 'review') {
+      if (dueCards.length === 0) {
+          return (
+            <div className="flex flex-col h-full bg-white">
+               <header className="bg-white p-4 border-b flex items-center sticky top-0 z-10">
+                   <button onClick={() => setView('main')} className="mr-4 text-gray-600"><ArrowLeft/></button>
+                   <h1 className="font-bold text-lg text-black">艾宾浩斯复习</h1>
+               </header>
+               <div className="flex-1 overflow-y-auto p-4 no-scrollbar">
+                   <div className="flex flex-col items-center justify-center h-64 text-green-500">
+                       <CheckCircle size={64} className="mb-4"/>
+                       <p className="font-bold text-lg">太棒了！</p>
+                       <p className="text-sm text-gray-400">所有复习任务已完成</p>
+                   </div>
+               </div>
+            </div>
+          );
+      }
+      
+      const currentCard = dueCards[currentReviewIndex];
+      
       return (
         <div className="flex flex-col h-full bg-white">
            <header className="bg-white p-4 border-b flex items-center sticky top-0 z-10">
                <button onClick={() => setView('main')} className="mr-4 text-gray-600"><ArrowLeft/></button>
-               <h1 className="font-bold text-lg text-black">艾宾浩斯复习</h1>
+               <div className="flex-1 text-center">
+                   <h1 className="font-bold text-lg text-black">艾宾浩斯复习</h1>
+                   <p className="text-xs text-gray-400">
+                       {currentReviewIndex + 1} / {dueCards.length}
+                   </p>
+               </div>
            </header>
            <div className="flex-1 overflow-y-auto p-4 no-scrollbar">
-                {dueCards.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-green-500">
-                        <CheckCircle size={64} className="mb-4"/>
-                        <p className="font-bold text-lg">太棒了！</p>
-                        <p className="text-sm text-gray-400">所有复习任务已完成</p>
-                    </div>
-                ) : (
-                    <div className="max-w-xl mx-auto">
-                        <div className="text-sm text-gray-400 mb-4 text-center">今日待复习: {dueCards.length} 张</div>
-                        {dueCards.map(c => renderCard(c, true))}
-                    </div>
-                )}
+               <div className="max-w-xl mx-auto">
+                   {renderCard(currentCard, true)}
+               </div>
            </div>
         </div>
       );
   }
 
   if (view === 'daily') {
+      if (dailyRandomCards.length === 0) {
+          return (
+            <div className="flex flex-col h-full bg-white">
+               <header className="bg-white p-4 border-b flex items-center sticky top-0 z-10">
+                   <button onClick={() => setView('main')} className="mr-4 text-gray-600"><ArrowLeft/></button>
+                   <h1 className="font-bold text-lg text-black">每日随机回顾</h1>
+               </header>
+               <div className="flex-1 overflow-y-auto p-4 no-scrollbar">
+                   <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+                       <p className="font-bold text-lg">暂无卡片</p>
+                       <p className="text-sm text-gray-400">请先创建一些卡片</p>
+                   </div>
+               </div>
+            </div>
+          );
+      }
+      
+      const currentCard = dailyRandomCards[currentDailyIndex];
+      
       return (
         <div className="flex flex-col h-full bg-white">
            <header className="bg-white p-4 border-b flex items-center sticky top-0 z-10">
                <button onClick={() => setView('main')} className="mr-4 text-gray-600"><ArrowLeft/></button>
-               <h1 className="font-bold text-lg text-black">每日随机回顾</h1>
+               <div className="flex-1 text-center">
+                   <h1 className="font-bold text-lg text-black">每日随机回顾</h1>
+                   <p className="text-xs text-gray-400">
+                       {currentDailyIndex + 1} / {dailyRandomCards.length}
+                   </p>
+               </div>
            </header>
            <div className="flex-1 overflow-y-auto p-4 no-scrollbar">
                <div className="max-w-xl mx-auto">
-                   {dailyRandomCards.map(c => renderCard(c, false, true))}
+                   {renderCard(currentCard, false, true)}
+                   
+                   {/* Navigation Buttons */}
+                   <div className="mt-6 flex gap-4">
+                       <button 
+                           onClick={() => setCurrentDailyIndex(prev => Math.max(0, prev - 1))}
+                           disabled={currentDailyIndex === 0}
+                           className={`flex-1 bg-white border rounded-md font-medium text-sm py-3 flex justify-center items-center ${currentDailyIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                       >
+                           <ArrowLeft size={16} className="mr-1"/>
+                           上一个
+                       </button>
+                       <button 
+                           onClick={() => setCurrentDailyIndex(prev => Math.min(dailyRandomCards.length - 1, prev + 1))}
+                           disabled={currentDailyIndex === dailyRandomCards.length - 1}
+                           className={`flex-1 bg-white border rounded-md font-medium text-sm py-3 flex justify-center items-center ${currentDailyIndex === dailyRandomCards.length - 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                       >
+                           下一个
+                           <ArrowLeft size={16} className="ml-1 transform rotate-180"/>
+                       </button>
+                   </div>
                </div>
            </div>
         </div>
@@ -538,15 +645,42 @@ const App = () => {
                                               
                                               {/* Tag Menu Popover */}
                                               {activeTagMenu === tag.name && (
-                                                  <div className="absolute right-0 top-10 bg-white shadow-xl border rounded-lg z-20 w-32 overflow-hidden animate-fade-in">
+                                                  <div className="absolute right-0 top-10 bg-white shadow-xl border rounded-lg z-20 w-48 overflow-hidden animate-fade-in">
                                                        <button 
                                                           onClick={(e) => {
                                                               e.stopPropagation();
-                                                              handleDeleteTag(tag.name);
+                                                              handlePinTag(tag.name);
+                                                          }} 
+                                                          className="w-full text-left px-4 py-3 text-slate-700 hover:bg-slate-50 text-sm flex items-center"
+                                                       >
+                                                          <Pin size={14} className="mr-2"/> 置顶
+                                                       </button>
+                                                       <button 
+                                                          onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              handleRenameTag(tag.name);
+                                                          }} 
+                                                          className="w-full text-left px-4 py-3 text-slate-700 hover:bg-slate-50 text-sm flex items-center"
+                                                       >
+                                                          <Edit2 size={14} className="mr-2"/> 重命名标签
+                                                       </button>
+                                                       <button 
+                                                          onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              handleDeleteTag(tag.name, false);
+                                                          }} 
+                                                          className="w-full text-left px-4 py-3 text-slate-700 hover:bg-slate-50 text-sm flex items-center"
+                                                       >
+                                                          <Trash size={14} className="mr-2"/> 仅删除标签
+                                                       </button>
+                                                       <button 
+                                                          onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              handleDeleteTag(tag.name, true);
                                                           }} 
                                                           className="w-full text-left px-4 py-3 text-red-600 hover:bg-red-50 text-sm flex items-center"
                                                        >
-                                                          <Trash size={14} className="mr-2"/> 删除
+                                                          <Trash size={14} className="mr-2"/> 删除标签和笔记
                                                        </button>
                                                   </div>
                                               )}

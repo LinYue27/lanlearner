@@ -9,7 +9,7 @@ interface BottomNavProps {
 
 export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
     return (
-        <div className="absolute bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-200 flex justify-around items-center z-50">
+        <div className="absolute left-0 right-0 h-16 bg-white border-t border-gray-200 flex justify-around items-center z-50" style={{ bottom: 'env(safe-area-inset-bottom, 0)' }}>
             <button 
                onClick={() => onTabChange('learn')}
                className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'learn' ? 'text-slate-800' : 'text-gray-400'}`}

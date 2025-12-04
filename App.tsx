@@ -529,12 +529,12 @@ const App = () => {
     <div className="flex flex-col h-full max-w-md mx-auto bg-white shadow-2xl overflow-hidden relative">
       
       {/* View Content */}
-      <div className="flex-1 overflow-hidden relative flex flex-col pb-16">
+      <div className="flex-1 overflow-hidden relative flex flex-col" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0))' }}>
           
           {/* Learn Tab */}
           {activeTab === 'learn' && (
               <div className="flex flex-col h-full relative">
-                 <div className="flex-1 overflow-y-auto p-6 space-y-6 pb-32 no-scrollbar"> 
+                 <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar"> 
                      
                      <div className="flex gap-4">
                         <button 
